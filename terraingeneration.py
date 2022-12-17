@@ -7,15 +7,20 @@ import OpenGL.GLUT as glut
 from random import random
 from perlin_noise import PerlinNoise
 
+noise = PerlinNoise()
+byteOffset = 0
+parameters = [48, 20, 8, 4, 4, 1]
+
 vertexShaderCode = """
     attribute vec3 position;
     uniform mat4 transformationMatrix[2];
     uniform mat4 projectionMatrix;
+    uniform mat4 translate;
     attribute vec4 color;
     varying vec4 vColor;
     
     void main(){
-        gl_Position = projectionMatrix * transformationMatrix[0] * transformationMatrix[1] * vec4(position, 1.0);
+        gl_Position = projectionMatrix * transformationMatrix[0] * transformationMatrix[1] * translate * vec4(position, 1.0);
         vColor = color;
     }
     """
@@ -65,39 +70,45 @@ def createProgram(vertex, fragment):
 
 
 # -- Building Data --
-
-def generateTerrainData(size, resolution, scale, perlinFactor = 3):
-    noise = PerlinNoise()
+def generateTerrain(value):
+    global data 
+    global noise
+    
     data = []
-    for j in range(-size[1] * scale, (size[1] * scale)):
-        for i in range(-size[0] * scale, (size[0] * scale)):
-            data.append([i/(scale * resolution[0]), j/(scale * resolution[1]), noise([i * perlinFactor/(scale * resolution[0]), j * perlinFactor/(scale * resolution[1])])])
-            data.append([i/(scale * resolution[0]), (j + 1)/(scale * resolution[1]), noise([i * perlinFactor/(scale * resolution[0]), (j + 1) * perlinFactor/(scale * resolution[1])])])
-            data.append([(i+1)/(scale * resolution[0]), (j)/(scale * resolution[1]), noise([(i + 1) * perlinFactor/(scale * resolution[0]), j * perlinFactor/(scale * resolution[1])])])
+
+    halfDataX = int(value[0] * value[4] / 2)
+    halfDataY = int(value[1] * value[4] / 2)
+
+    scaledResolutionX = int(value[2] * value[4] / 2)
+    scaledResolutionY = int(value[3] * value[4] / 2)
+
+    for j in range(-halfDataY, halfDataY):
+        for i in range(-halfDataX, halfDataX):
+            iData = i / scaledResolutionX
+            jData = j / scaledResolutionY
+            nextiData = (i + 1) / scaledResolutionX
+            nextjData = (j + 1) / scaledResolutionY
+            data.append([iData, jData, mapNoise(noise([iData / value[5], jData / value[5]]))])
+            data.append([iData, nextjData, mapNoise(noise([iData / value[5], nextjData / value[5]]))])
+            data.append([nextiData, jData, mapNoise(noise([nextiData / value[5], jData / value[5]]))])
         
     data = np.array(data, dtype = np.float32)
     return data
 
-def generateRotation(transformationData):
+def mapNoise(noiseValue, maxMap = 1, minMap = -1):
+    if noiseValue > 0.5:
+        return (noiseValue - 0.5) * 2 * maxMap
+    else:
+        return - (0.5 - noiseValue) * 2 * minMap
+
+def generateRotation(transformationData = None):
     if not transformationData or transformationData[0] == "":
         transformationMatrix = np.array(
             [
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
+                1.0,0.0,0.0,0.0,
+                0.0,1.0,0.0,0.0,
+                0.0,0.0,1.0,0.0,
+                0.0,0.0,0.0,1.0,
             ],
             np.float32,
         )
@@ -109,22 +120,10 @@ def generateRotation(transformationData):
     if transformationData[0] == "pitch":
         transformationMatrix = np.array(
             [
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                cTheta,
-                -sTheta,
-                0.0,
-                0.0,
-                sTheta,
-                cTheta,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
+                1.0,0.0,0.0,0.0,
+                0.0,cTheta,-sTheta,0.0,
+                0.0,sTheta,cTheta,0.0,
+                0.0,0.0,0.0,1.0,
             ],
             np.float32,
         )
@@ -133,22 +132,10 @@ def generateRotation(transformationData):
     elif transformationData[0] == "yaw":
         transformationMatrix = np.array(
             [
-                cTheta,
-                0.0,
-                sTheta,
-                0.0,
-                0.0,
-                1.0,
-                0.0,
-                0.0,
-                -sTheta,
-                0.0,
-                cTheta,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
+                cTheta,0.0,sTheta,0.0,
+                0.0,1.0,0.0,0.0,
+                -sTheta,0.0,cTheta,0.0,
+                0.0,0.0,0.0,1.0,
             ],
             np.float32,
         )
@@ -157,22 +144,10 @@ def generateRotation(transformationData):
     elif transformationData[0] == "roll":
         transformationMatrix = np.array(
             [
-                cTheta,
-                -sTheta,
-                0.0,
-                0.0,
-                sTheta,
-                cTheta,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
+                cTheta,-sTheta,0.0,0.0,
+                sTheta,cTheta,0.0,0.0,
+                0.0,0.0,1.0,0.0,
+                0.0,0.0,0.0,1.0,
             ],
             np.float32,
         )
@@ -180,26 +155,14 @@ def generateRotation(transformationData):
     return transformationMatrix
 
 
-def generateTranslation(translationData):
+def generateTranslation(translationData = None):
     if not translationData or translationData[0] == "":
         transformationMatrix = np.array(
             [
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
+                1.0,0.0,0.0,0.0,
+                0.0,1.0,0.0,0.0,
+                0.0,0.0,1.0,0.0,
+                0.0,0.0,0.0,1.0,
             ],
             np.float32,
         )
@@ -208,31 +171,65 @@ def generateTranslation(translationData):
 
     transformationMatrix = np.array(
             [
-                1.0,
-                0.0,
-                0.0,
-                translationData[0],
-                0.0,
-                1.0,
-                0.0,
-                translationData[1],
-                0.0,
-                0.0,
-                1.0,
-                translationData[2],
-                0.0,
-                0.0,
-                0.0,
-                1.0,
+                1.0,0.0,0.0,translationData[0],
+                0.0,1.0,0.0,translationData[1],
+                0.0,0.0,1.0,translationData[2],
+                0.0,0.0,0.0,1.0,
             ],
             np.float32,
         )
 
     return transformationMatrix
+
+def animate(offset):
+    global noise
+    global byteOffset
+    global parameters
+    offsetY = int(parameters[1] * parameters[4] / 2) + offset
+    
+    halfDataX = int(parameters[0] * parameters[4] / 2)
+
+    scaledResolutionX = int(parameters[2] * parameters[4] / 2)
+    scaledResolutionY = int(parameters[3] * parameters[4] / 2)
+
+    noOfData = 2 * halfDataX * 3
+
+    translation = generateTranslation([0.0, -offset/scaledResolutionY, 0.0])
+
+    loc = gl.glGetUniformLocation(program, "translate")
+    gl.glUniformMatrix4fv(loc, 1, gl.GL_TRUE, translation)
+
+    data = []
+    nextjData = (offsetY + 1) / scaledResolutionY
+    jData = offsetY / scaledResolutionY
+    for i in range(-halfDataX, halfDataX):
+        iData = i / scaledResolutionX
+        nextiData = (i + 1) / scaledResolutionX
+        data.append([iData, jData, mapNoise(noise([iData / parameters[5], jData / parameters[5]]))])
+        data.append([iData, nextjData, mapNoise(noise([iData / parameters[5], nextjData / parameters[5]]))])
+        data.append([nextiData, jData, mapNoise(noise([nextiData / parameters[5], jData / parameters[5]]))])
+        
+    data = np.array(data, dtype = np.float32)
+
+    rowBytes = noOfData * data.strides[0]
+    maxBuffer = int(parameters[1] * parameters[4]) -1 
+    print(byteOffset)
+    if  byteOffset > maxBuffer:
+        byteOffset = 0
+
+    gl.glBufferSubData(gl.GL_ARRAY_BUFFER, byteOffset * rowBytes, rowBytes, data)
+    
+    byteOffset = byteOffset + 1
+
+    glut.glutTimerFunc(1, animate, offset + 1)
+
+
 # initialization function
 def initialize():
     global program
     global data
+    global parameters
+    global vertexBuffer
 
     gl.glEnable(gl.GL_DEPTH_TEST)
     gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
@@ -244,7 +241,7 @@ def initialize():
         createShader(fragmentShaderCode, gl.GL_FRAGMENT_SHADER),
     )
     
-    data = generateTerrainData([64, 36], [16, 9], 3, 1.75)
+    data = generateTerrain(parameters)
 
     # data = np.array([[-0.5,-0.5,1.0],[-0.5, -0.4, 1.0], [-0.4,-0.5,1.0], [-0.4,-0.4,1.0], [-0.3,-0.5,1.0], [-0.3,-0.4,1.0]], dtype = np.float32)
     color = np.array([[1.0, 1.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0], [0.0, 1.0, 0.0, 1.0]])
@@ -258,22 +255,27 @@ def initialize():
                                 0.0, 0.0, 1.0, 1], dtype = np.float32)
     
     translationMatrix =generateTranslation([0, 0.5, 0.4])
+    translation = generateTranslation()
     rotationMatrix = generateRotation(["pitch", 45])
     transformationMatrix = np.array([rotationMatrix, translationMatrix])
+    
     # make program the default program
     gl.glUseProgram(program)
 
-    buffer = gl.glGenBuffers(1)
+    vertexBuffer = gl.glGenBuffers(1)
 
     # make these buffer the default one
-    gl.glBindBuffer(gl.GL_ARRAY_BUFFER, buffer)
+    gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vertexBuffer)
 
     # bind the position attribute
     stride = data.strides[0]
     offset = ctypes.c_void_p(0)
+
+    # print(data.strides, offset)
+
     loc = gl.glGetAttribLocation(program, "position")
     gl.glEnableVertexAttribArray(loc)
-    gl.glBindBuffer(gl.GL_ARRAY_BUFFER, buffer)
+    gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vertexBuffer)
     gl.glVertexAttribPointer(loc, 3, gl.GL_FLOAT, False, stride, offset)
 
 
@@ -281,7 +283,7 @@ def initialize():
     offset = ctypes.c_void_p(0)
     loc = gl.glGetAttribLocation(program, "color")
     gl.glEnableVertexAttribArray(loc)
-    gl.glBindBuffer(gl.GL_ARRAY_BUFFER, buffer)
+    gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vertexBuffer)
     gl.glVertexAttribPointer(loc, 3, gl.GL_FLOAT, False, stride, offset)
 
     loc = gl.glGetUniformLocation(program, "transformationMatrix")
@@ -290,16 +292,20 @@ def initialize():
     loc = gl.glGetUniformLocation(program, "projectionMatrix")
     gl.glUniformMatrix4fv(loc, 1, gl.GL_TRUE, projectionMatrix)
 
+    loc = gl.glGetUniformLocation(program, "translate")
+    gl.glUniformMatrix4fv(loc, 1, gl.GL_TRUE, translation)
+
     # Upload data
     gl.glBufferData(gl.GL_ARRAY_BUFFER, data.nbytes, data, gl.GL_DYNAMIC_DRAW)
 
 
 def display():
     gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
-    gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE);
+    gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE)
     gl.glDrawArrays(gl.GL_TRIANGLES, 0, data.shape[0])
-    gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_FILL);
     glut.glutSwapBuffers()
+    glut.glutPostRedisplay()
+
 
 
 def reshape(width, height):
@@ -319,10 +325,10 @@ glut.glutReshapeWindow(1920, 1080)
 glut.glutReshapeFunc(reshape)
 
 initialize()
-
+animate(0)
+# animate()
 glut.glutDisplayFunc(display)
 glut.glutPostRedisplay()
 glut.glutKeyboardFunc(keyboard)
-
 # enter the mainloop
 glut.glutMainLoop()
