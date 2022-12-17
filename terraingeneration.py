@@ -8,8 +8,10 @@ from random import random
 from perlin_noise import PerlinNoise
 
 noise = PerlinNoise()
+fieldOfView = 70
 byteOffset = 0
 parameters = [48, 20, 8, 4, 4, 1]
+startPoint = [0,0]
 
 vertexShaderCode = """
     attribute vec3 position;
@@ -181,6 +183,8 @@ def animate(offset):
     global noise
     global byteOffset
     global parameters
+    global fieldOfView
+
     offsetY = int(parameters[1] * parameters[4] / 2) + offset
     
     halfDataX = int(parameters[0] * parameters[4] / 2)
@@ -194,6 +198,17 @@ def animate(offset):
 
     loc = gl.glGetUniformLocation(program, "translate")
     gl.glUniformMatrix4fv(loc, 1, gl.GL_TRUE, translation)
+
+    fov = (fieldOfView * math.pi)/180
+    tanFOVHalf = np.tan(fov / 2.0)
+    f = 1/tanFOVHalf
+    projectionMatrix = np.array([f, 0.0, 0.0, 0.0,
+                                0.0, 1, 0.0, 0.0,
+                                0.0, 0.0, 1.0, 0.0,
+                                0.0, 0.0, 1.0, 1], dtype = np.float32)    
+
+    loc = gl.glGetUniformLocation(program, "projectionMatrix")
+    gl.glUniformMatrix4fv(loc, 1, gl.GL_TRUE, projectionMatrix)
 
     data = []
     nextjData = (offsetY + 1) / scaledResolutionY
@@ -226,6 +241,7 @@ def initialize():
     global data
     global parameters
     global vertexBuffer
+    global fieldOfView
 
     gl.glEnable(gl.GL_DEPTH_TEST)
     gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
@@ -239,8 +255,8 @@ def initialize():
     
     data = generateTerrain(parameters)
     
-    fieldOfView = (90 * math.pi)/180
-    tanFOVHalf = np.tan(fieldOfView / 2.0)
+    fov = (fieldOfView * math.pi)/180
+    tanFOVHalf = np.tan(fov / 2.0)
     f = 1/tanFOVHalf
     projectionMatrix = np.array([f, 0.0, 0.0, 0.0,
                                 0.0, 1, 0.0, 0.0,
@@ -299,6 +315,27 @@ def keyboard(key, x, y):
     if key == b"\x1b":
         os._exit(1)
 
+def mouse(button, state, x ,y):
+    global startPoint
+    global fieldOfView
+
+    if state == 0:
+        startPoint = [x, y]
+        print(x, y)
+        print(fieldOfView)
+        print("pressed")
+    if state == 1:
+        print(x, y)
+
+        delX = x - startPoint[0]
+        delY = y - startPoint[1]
+        print("released")
+
+        if (delX == 0 and delY == 0):
+            fieldOfView = 70
+        else:
+            fieldOfView = (fieldOfView + (((abs(delX) + abs(delY))/2) * 3.6) % 1000) % 360
+        print(fieldOfView)
 
 # GLUT init
 glut.glutInit()
@@ -313,5 +350,6 @@ animate(0)
 glut.glutDisplayFunc(display)
 glut.glutPostRedisplay()
 glut.glutKeyboardFunc(keyboard)
+glut.glutMouseFunc(mouse)
 # enter the mainloop
 glut.glutMainLoop()
