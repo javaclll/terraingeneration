@@ -8,6 +8,7 @@ authors = ["javaclll <yugu.upadhyaya@gmail.com>"]
 python = "^3.9"
 PyOpenGL = "^3.1.6"
 perlin-noise = "^1.12"
+numpy = "^1.23.5"
 
 [tool.poetry.dev-dependencies]
 black = "^22.12.0"
