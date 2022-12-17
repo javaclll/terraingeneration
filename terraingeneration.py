@@ -16,17 +16,13 @@ vertexShaderCode = """
     uniform mat4 transformationMatrix[2];
     uniform mat4 projectionMatrix;
     uniform mat4 translate;
-    attribute vec4 color;
-    varying vec4 vColor;
     
     void main(){
         gl_Position = projectionMatrix * transformationMatrix[0] * transformationMatrix[1] * translate * vec4(position, 1.0);
-        vColor = color;
     }
     """
 
 fragmentShaderCode = """
-    varying vec4 vColor;
     void main(){
         gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
     }
@@ -213,7 +209,7 @@ def animate(offset):
 
     rowBytes = noOfData * data.strides[0]
     maxBuffer = int(parameters[1] * parameters[4]) -1 
-    print(byteOffset)
+
     if  byteOffset > maxBuffer:
         byteOffset = 0
 
@@ -242,9 +238,6 @@ def initialize():
     )
     
     data = generateTerrain(parameters)
-
-    # data = np.array([[-0.5,-0.5,1.0],[-0.5, -0.4, 1.0], [-0.4,-0.5,1.0], [-0.4,-0.4,1.0], [-0.3,-0.5,1.0], [-0.3,-0.4,1.0]], dtype = np.float32)
-    color = np.array([[1.0, 1.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0], [0.0, 1.0, 0.0, 1.0]])
     
     fieldOfView = (90 * math.pi)/180
     tanFOVHalf = np.tan(fieldOfView / 2.0)
@@ -271,17 +264,7 @@ def initialize():
     stride = data.strides[0]
     offset = ctypes.c_void_p(0)
 
-    # print(data.strides, offset)
-
     loc = gl.glGetAttribLocation(program, "position")
-    gl.glEnableVertexAttribArray(loc)
-    gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vertexBuffer)
-    gl.glVertexAttribPointer(loc, 3, gl.GL_FLOAT, False, stride, offset)
-
-
-    stride = color.strides[0]
-    offset = ctypes.c_void_p(0)
-    loc = gl.glGetAttribLocation(program, "color")
     gl.glEnableVertexAttribArray(loc)
     gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vertexBuffer)
     gl.glVertexAttribPointer(loc, 3, gl.GL_FLOAT, False, stride, offset)
