@@ -11,7 +11,7 @@ noise = PerlinNoise()
 fieldOfView = 70
 byteOffset = 0
 parameters = [48, 20, 8, 4, 4, 1]
-startPoint = [0,0]
+startPoint = 0
 
 vertexShaderCode = """
     attribute vec3 position;
@@ -315,27 +315,18 @@ def keyboard(key, x, y):
     if key == b"\x1b":
         os._exit(1)
 
-def mouse(button, state, x ,y):
+def mouse(x ,y):
     global startPoint
     global fieldOfView
 
-    if state == 0:
-        startPoint = [x, y]
-        print(x, y)
-        print(fieldOfView)
-        print("pressed")
-    if state == 1:
-        print(x, y)
+    delX = x - startPoint
+    print("released")
 
-        delX = x - startPoint[0]
-        delY = y - startPoint[1]
-        print("released")
-
-        if (delX == 0 and delY == 0):
-            fieldOfView = 70
-        else:
-            fieldOfView = (fieldOfView + (((abs(delX) + abs(delY))/2) * 3.6) % 1000) % 360
-        print(fieldOfView)
+    if (delX == 0):
+        fieldOfView = 70
+    else:
+        fieldOfView = (fieldOfView + (delX * 0.0050)) % 360
+    print(fieldOfView)
 
 # GLUT init
 glut.glutInit()
@@ -350,6 +341,6 @@ animate(0)
 glut.glutDisplayFunc(display)
 glut.glutPostRedisplay()
 glut.glutKeyboardFunc(keyboard)
-glut.glutMouseFunc(mouse)
+glut.glutMotionFunc(mouse)
 # enter the mainloop
 glut.glutMainLoop()
