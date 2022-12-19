@@ -8,10 +8,12 @@ from random import random
 from perlin_noise import PerlinNoise
 
 noise = PerlinNoise()
-fieldOfView = 70
+fieldOfView = 80
 byteOffset = 0
-parameters = [48, 20, 8, 4, 4, 1]
+# Paramters [ Mesh Size, Screen Reoslution, Scaling Size, Perlin Factor]
+parameters = [48, 25, 8, 4, 4, 0.12]
 startPoint = 0
+
 
 vertexShaderCode = """
     attribute vec3 position;
@@ -80,24 +82,33 @@ def generateTerrain(value):
     scaledResolutionX = int(value[2] * value[4] / 2)
     scaledResolutionY = int(value[3] * value[4] / 2)
 
+    startX = 0
+    startY = 0
     for j in range(-halfDataY, halfDataY):
         for i in range(-halfDataX, halfDataX):
             iData = i / scaledResolutionX
             jData = j / scaledResolutionY
             nextiData = (i + 1) / scaledResolutionX
             nextjData = (j + 1) / scaledResolutionY
-            data.append([iData, jData, mapNoise(noise([iData / value[5], jData / value[5]]))])
-            data.append([iData, nextjData, mapNoise(noise([iData / value[5], nextjData / value[5]]))])
-            data.append([nextiData, jData, mapNoise(noise([nextiData / value[5], jData / value[5]]))])
+            data.append([iData, jData, mapNoise(noise([startX, startY]))])
+            data.append([iData, nextjData, mapNoise(noise([startX, (startY + value[5])]))])
+            data.append([nextiData, jData, mapNoise(noise([(startX + value[5]), startY]))])
+            startX = startX + value[5]
         
+        startY = startY + value[5]
+        startX = 0
+
     data = np.array(data, dtype = np.float32)
     return data
 
-def mapNoise(noiseValue, maxMap = 1, minMap = -1):
-    if noiseValue > 0.5:
-        return (noiseValue - 0.5) * 2 * maxMap
+def mapNoise(noiseValue, maxMap = 1, minMap = 0.75):
+    print(noiseValue)
+    # return noiseValue
+
+    if noiseValue > 0:
+        return noiseValue * maxMap
     else:
-        return - (0.5 - noiseValue) * 2 * minMap
+        return noiseValue * minMap
 
 def generateRotation(transformationData = None):
     if not transformationData or transformationData[0] == "":
@@ -213,13 +224,15 @@ def animate(offset):
     data = []
     nextjData = (offsetY + 1) / scaledResolutionY
     jData = offsetY / scaledResolutionY
+    startY = ((parameters[1] * parameters[4]) + offset) * parameters[5]
+    startX = 0
     for i in range(-halfDataX, halfDataX):
         iData = i / scaledResolutionX
         nextiData = (i + 1) / scaledResolutionX
-        data.append([iData, jData, mapNoise(noise([iData / parameters[5], jData / parameters[5]]))])
-        data.append([iData, nextjData, mapNoise(noise([iData / parameters[5], nextjData / parameters[5]]))])
-        data.append([nextiData, jData, mapNoise(noise([nextiData / parameters[5], jData / parameters[5]]))])
-        
+        data.append([iData, jData, mapNoise(noise([startX, startY]))])
+        data.append([iData, nextjData, mapNoise(noise([startX, (startY + parameters[5])]))])
+        data.append([nextiData, jData, mapNoise(noise([(startX + parameters[5]), startY]))])
+        startX = startX + parameters[5]
     data = np.array(data, dtype = np.float32)
 
     rowBytes = noOfData * data.strides[0]
@@ -337,6 +350,7 @@ glut.glutReshapeFunc(reshape)
 
 initialize()
 animate(0)
+
 # animate()
 glut.glutDisplayFunc(display)
 glut.glutPostRedisplay()
